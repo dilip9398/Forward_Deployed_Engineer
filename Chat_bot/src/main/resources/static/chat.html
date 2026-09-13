@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Admissions Assistant</title>
+    <!-- Add this inside the <head> section -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* --- CSS STYLES --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            width: 400px;
+            height: 600px;
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background-color: #004aad; /* College Blue */
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h2 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #f9fafb;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .bot-message {
+            background-color: #e4e6eb;
+            color: #050505;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        .user-message {
+            background-color: #004aad;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            background-color: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            border-color: #004aad;
+        }
+
+        button {
+            background-color: #004aad;
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #003380;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Loading dots animation */
+        .typing {
+            font-style: italic;
+            color: #888;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        /* Add this to your CSS */
+.bot-message ul {
+    margin-left: 20px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.bot-message li {
+    margin-bottom: 5px;
+}
+
+.bot-message p {
+    margin-bottom: 8px;
+}
+
+.bot-message strong {
+    color: #004aad; /* Makes the bold text match your college blue! */
+}
+
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <!-- Header -->
+    <div class="chat-header">
+        <h2>🎓 Admissions Support</h2>
+        <p>Ask us about courses, fees, or deadlines!</p>
+    </div>
+
+    <!-- Chat Messages Area -->
+    <div class="chat-messages" id="chatMessages">
+        <div class="message bot-message">
+            Hello! Welcome to the Admissions Office. How can I help you with your application today?
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="chat-input-area">
+        <input type="text" id="userInput" placeholder="Type your question here..." autocomplete="off">
+        <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    // --- JAVASCRIPT LOGIC ---
+
+    const chatMessages = document.getElementById('chatMessages');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // Allow pressing "Enter" to send
+    userInput.addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    });
+
+    async function sendMessage() {
+        const message = userInput.value.trim();
+
+        if (message === "") return;
+
+        // 1. Add User Message to Chat
+        addMessage(message, 'user-message');
+        userInput.value = "";
+
+        // Disable input while waiting for AI
+        userInput.disabled = true;
+        sendBtn.disabled = true;
+
+        // Show "Typing..." indicator
+        const typingId = showTyping();
+
+        try {
+            // 2. Call your Spring Boot API
+            // CHANGE THIS URL if your endpoint is different!
+            const response = await fetch('http://localhost:8080/api/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: message
+});
+
+            // Remove typing indicator
+            removeTyping(typingId);
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            // 3. Get the AI response text
+            const aiReply = await response.text();
+
+            // 4. Add AI Message to Chat
+            addMessage(aiReply, 'bot-message');
+
+        } catch (error) {
+            removeTyping(typingId);
+            addMessage("Sorry, I'm having trouble connecting to the server. Please try again later.", 'bot-message');
+            console.error('Error:', error);
+        } finally {
+            // Re-enable input
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+    }
+
+    function addMessage(text, className) {
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message', className);
+
+    // If it's a bot message, format the markdown (bold, bullets, etc.)
+    if (className === 'bot-message') {
+        msgDiv.innerHTML = marked.parse(text);
+    } else {
+        msgDiv.innerText = text; // Keep user messages as plain text
+    }
+
+    chatMessages.appendChild(msgDiv);
+
+    // Auto-scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+    function showTyping() {
+        const id = 'typing-' + Date.now();
+        const typingDiv = document.createElement('div');
+        typingDiv.id = id;
+        typingDiv.classList.add('typing');
+        typingDiv.innerText = "Assistant is typing...";
+        chatMessages.appendChild(typingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return id;
+    }
+
+    function removeTyping(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+</script>
+
+</body>
+</html>
